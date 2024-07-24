@@ -1,19 +1,9 @@
+import 'package:awesome_place_search/src/data/models/place_details.dart';
+
 import 'awesome_place_model.dart';
 
 class PredictionModel {
-  final String? description;
-  double? latitude;
-  double? longitude;
-
-  final List<MatchedSubstring>? matchedSubstrings;
-  final String? placeId;
-  final String? reference;
-  final StructuredFormatting? structuredFormatting;
-  final List<Term>? terms;
-  final List<String>? types;
   PredictionModel({
-    this.latitude,
-    this.longitude,
     this.description,
     this.matchedSubstrings,
     this.placeId,
@@ -22,6 +12,16 @@ class PredictionModel {
     this.terms,
     this.types,
   });
+
+  final String? description;
+  final List<MatchedSubstring>? matchedSubstrings;
+  final String? placeId;
+  final String? reference;
+  final StructuredFormatting? structuredFormatting;
+  final List<Term>? terms;
+  final List<String>? types;
+
+  PlaceDetails? details;
 
   factory PredictionModel.fromJson(Map<String, dynamic> json) =>
       PredictionModel(

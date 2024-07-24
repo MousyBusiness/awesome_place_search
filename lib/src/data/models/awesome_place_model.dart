@@ -2,9 +2,6 @@ import 'dart:convert';
 
 import 'package:awesome_place_search/src/data/models/prediction_model.dart';
 
-AwesomePlacesSearchModel awesomePlacesModelFromJson(String str) =>
-    AwesomePlacesSearchModel.fromJson(json.decode(str));
-
 class AwesomePlacesSearchModel {
   final List<PredictionModel>? predictions;
   final String? status;
@@ -73,11 +70,4 @@ class Term {
         offset: json["offset"],
         value: json["value"],
       );
-}
-
-class ParamSearchModel {
-  final String value;
-  final String key;
-  final String? countries;
-  ParamSearchModel({required this.value, this.countries, required this.key});
 }

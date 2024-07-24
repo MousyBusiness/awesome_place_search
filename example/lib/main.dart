@@ -59,64 +59,34 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: prediction != null
-            ? Column(
-                // Column is also a layout widget. It takes a list of children and
-                // arranges them vertically. By default, it sizes itself to fit its
-                // children horizontally, and tries to be as tall as its parent.
-                //
-                // Invoke "debug painting" (press "p" in the console, choose the
-                // "Toggle Debug Paint" action from the Flutter Inspector in Android
-                // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-                // to see the wireframe for each widget.
-                //
-                // Column has various properties to control how it sizes itself and
-                // how it positions its children. Here we use mainAxisAlignment to
-                // center the children vertically; the main axis here is the vertical
-                // axis because Columns are vertical (the cross axis would be
-                // horizontal).
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  _line(
-                      title: "description", subTitle: prediction!.description!),
-                  _line(
-                      title: "Coordinate",
-                      subTitle:
-                          "${prediction!.latitude}, ${prediction!.longitude}"),
-                  _line(title: "PlaceId", subTitle: prediction!.placeId!),
-                  _line(
-                      title: "Secondary text",
-                      subTitle:
-                          prediction!.structuredFormatting!.secondaryText!),
-                ],
-              )
-            : const Center(
-                child: Text('Tap in float action button to get prediction')),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          AwesomePlaceSearch(
-            context: context,
-            apiKey: "Your Google Map Key",
-            countries: ["ao", "pt"],
-            dividerItemColor: Colors.grey.withOpacity(.5),
-            dividerItemWidth: .5,
-            elevation: 5,
-            indicatorColor: Colors.blue,
-            modalBorderRadius: 50.0,
-            onTap: (value) async {
-              final va = await value;
-              setState(() {
-                prediction = va;
-              });
-            },
-          ).show();
+      body: AwesomePlacesSearch(
+        apiKey: "Your Google Map Key",
+        countries: "ao|pt",
+        onSelected: (v) {},
+        itemBuilder: (context, title, address, onTap) {
+          return ListTile(title: Text(title), subtitle: Text(address), onTap: onTap);
         },
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        searchBuilder: (context, onChanged) {
+          return TextFormField(
+            onChanged: onChanged,
+          );
+        },
+        emptyBuilder: (context) {
+          return Container(color: Colors.white, child: const Text("Empty"));
+        },
+        loadingBuilder: (context) {
+          return Container(color: Colors.white, child: const CircularProgressIndicator());
+        },
+        invalidKeyBuilder: (context) {
+          return Container(color: Colors.white, child: const Text("Invalid API Key"));
+        },
+        errorBuilder: (context) {
+          return Container(color: Colors.white, child: const Text("Error"));
+        },
+        noneBuilder: (BuildContext context) {
+          return Container(color: Colors.white, child: const Text("Start searching"));
+        },
+      ),
     );
   }
 
@@ -126,8 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
         children: [
           TextSpan(
             text: "$title: ",
-            style: const TextStyle(
-                fontWeight: FontWeight.w800, color: Colors.black, fontSize: 20),
+            style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black, fontSize: 20),
           ),
           TextSpan(
             text: " $subTitle",

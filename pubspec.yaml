@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.1
-  dartz: ^0.10.1
 
 dev_dependencies:
   flutter_test:

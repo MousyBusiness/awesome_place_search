@@ -1,286 +1,180 @@
 import 'dart:async';
-import 'dart:developer';
 
-import 'package:awesome_place_search/src/commons/widgets/custom_text_field.dart';
-import 'package:awesome_place_search/src/core/dependencies/dependencies.dart';
 import 'package:awesome_place_search/src/core/services/debouncer.dart';
+import 'package:awesome_place_search/src/data/models/places_types.dart';
 import 'package:awesome_place_search/src/data/models/prediction_model.dart';
 import 'package:awesome_place_search/src/presentation/controller/awesome_place_search_controller.dart';
 import 'package:awesome_place_search/src/presentation/controller/search_state.dart';
-import 'package:awesome_place_search/src/presentation/views/widgets/awesome_place_search_item.dart';
 import 'package:flutter/material.dart';
 
 ///[AwesomePlaceSearch]
 /// This is the Main Class
-class AwesomePlaceSearch {
-  final String apiKey;
-  final String hint;
-  final String errorText;
-  final BuildContext context;
-  final double modalBorderRadius;
-
-  final Widget? loadingWidget;
-  final InputDecoration? searchTextFieldDecoration;
-  final Color? dividerItemColor;
-  final double dividerItemWidth;
-  final Widget? placeIconWidget;
-
-  final Widget? onErrorWidget;
-
-  final double? elevation;
-  final List<String> countries;
-  final Color? indicatorColor;
-  final TextStyle? subtitleStyle;
-  final Widget? invalidKeyWidget;
-
-  final TextStyle? titleStyle;
-  final Function(Future<PredictionModel>) onTap;
-
-  final dependencies = Dependencies();
-  AwesomePlaceSearchController? _controller;
-
-  AwesomePlaceSearch({
-    required this.context,
-    this.searchTextFieldDecoration,
+class AwesomePlacesSearch extends StatefulWidget {
+  const AwesomePlacesSearch({
+    super.key,
     required this.apiKey,
-    this.modalBorderRadius = 15.0,
-    this.elevation,
-    this.dividerItemWidth = 0.2,
-    this.countries = const [],
-    this.errorText = "something went wrong",
-    this.hint = "Where are we going?",
-    required this.onTap,
-    this.invalidKeyWidget,
-    this.onErrorWidget,
-    this.loadingWidget,
-    this.dividerItemColor,
-    this.placeIconWidget,
-    this.indicatorColor,
-    this.subtitleStyle,
-    this.titleStyle,
-  }) {
-    //init clean architecture dependency
+    required this.onSelected,
+    required this.itemBuilder,
+    required this.searchBuilder,
+    required this.noneBuilder,
+    required this.emptyBuilder,
+    required this.loadingBuilder,
+    required this.invalidKeyBuilder,
+    required this.errorBuilder,
+    this.debounce = const Duration(milliseconds: 500),
+    this.hint,
+    this.errorText,
+    this.countries,
+    this.types,
+    this.location,
+    this.radius,
+  });
 
-    // assert(dividerItemWidth < 1.0, "The divider width must be less than 1.0");
+  final String apiKey;
+  final String? hint;
+  final String? errorText;
+  final Duration debounce;
 
-    dependencies.initDependencies(apiKey);
-    _controller = AwesomePlaceSearchController(
-        dependencies: dependencies, countries: countries);
-  }
+  /// Location and radius should be used together
+  /// latitude,longitude
+  final String? location;
+  /// meters
+  final int? radius;
 
-  // late final AwesomePlacesSearchBloc bloc;
+  /// Pipe separated string of iban alpha-2 codes e.g. us|ad (United States and Andorra)
+  /// https://www.iban.com/country-codes
+  final String? countries;
+  /// Pipe separated string e.g. airport|bar see PlacesTypes for valid values
+  final List<PlacesTypes>? types;
+  final WidgetBuilder loadingBuilder;
+  final WidgetBuilder noneBuilder;
+  final WidgetBuilder emptyBuilder;
+  final WidgetBuilder invalidKeyBuilder;
+  final WidgetBuilder errorBuilder;
+  final ValueSetter<PredictionModel> onSelected;
+  final Widget Function(
+    BuildContext context,
+    String title,
+    String address,
+    VoidCallback onTap,
+  ) itemBuilder;
 
-  final _textSearch = TextEditingController();
-  final Debounce _debounce = Debounce(milliseconds: 500);
-  double _height = 0.0;
+  final Widget Function(
+    BuildContext context,
+    ValueSetter<String> onChanged,
+  ) searchBuilder;
 
+  @override
+  State<AwesomePlacesSearch> createState() => _AwesomePlacesSearchState();
+}
+
+class _AwesomePlacesSearchState extends State<AwesomePlacesSearch> {
+  late AwesomePlaceSearchController _controller;
+  late final Debounce _debounce;
   SearchState _searchState = SearchState.none;
   List<PredictionModel> _places = [];
 
-  ///[show]
-  ///Show modal to search places
-  void show() async {
-    showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.grey.withOpacity(.7),
-      backgroundColor: Colors.transparent,
-      useSafeArea: false,
-      builder: (context) {
-        return Builder(builder: (context) {
-          return LayoutBuilder(builder: (_, BoxConstraints constraints) {
-            _height = constraints.maxHeight;
-            return Container(
-              height: _height * .9,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(modalBorderRadius),
-                  topRight: Radius.circular(modalBorderRadius),
-                  // topLeft: ,
-                  // topRight: Radius.circular(modalBorderRadius),
-                ),
-              ),
-              child: _bodyModal(height: _height),
-            );
-          });
-        });
-      },
-    );
-  }
-
-  ///[_bodyModal]
-  ///Component that constitutes the body of the modal
-  Widget _bodyModal({required double height}) {
-    return StatefulBuilder(builder: (context, setState) {
-      return Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            // const SizedBox(height: 10),
-            Container(
-              width: 100,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(.3),
-                borderRadius: BorderRadius.circular(50),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Stack(
-                children: [
-                  _switchState(_places),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: CustomTextField(
-                      hint: hint,
-                      searchTextFieldDecorator: searchTextFieldDecoration,
-                      elevation: elevation ?? 10.0,
-                      controller: _textSearch,
-                      onChange: (value) {
-                        _debounce(callback: () {
-                          if (value.isEmpty) {
-                            setState(() => _searchState = SearchState.none);
-                            return;
-                          }
-
-                          _searchData(state: setState);
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            )
-          ],
-        ),
-      );
-    });
-  }
-
-  ///[_switchState]
-  ///This component checks what the
-  ///current state is and displays
-  ///the appropriate widget depending on the state
-  Widget _switchState(
-    // AwesomePlacesSearchState? state,
-    List<PredictionModel> places,
-  ) {
-    if (_searchState == SearchState.none) {
-      return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
-    }
-    if (_searchState == SearchState.loading) {
-      return const Center(child: CircularProgressIndicator());
+  @override
+  void initState() {
+    super.initState();
+    String? typesString;
+    if(widget.types != null && widget.types!.isNotEmpty){
+      typesString = widget.types!.map((e)=> e.string).join("|");
     }
 
-    if (_searchState == SearchState.invalidKey) {
-      return Positioned.fill(
-        top: 80,
-        child: invalidKeyWidget ??
-            const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.no_encryption_gmailerrorred_outlined,
-                  size: 120.0,
-                ),
-                SizedBox(height: 20),
-                Text("Invalid key"),
-              ],
-            ),
-      );
-    }
-
-    if (_searchState == SearchState.serverError) {
-      return Positioned.fill(
-        top: 80,
-        child: onErrorWidget ??
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.nearby_error,
-                  size: 120.0,
-                ),
-                const SizedBox(height: 20),
-                Text(errorText),
-              ],
-            ),
-      );
-    }
-
-    return Positioned.fill(top: 50, child: _list(places: places));
+    _debounce = Debounce(duration: widget.debounce);
+    _controller = AwesomePlaceSearchController(apiKey: widget.apiKey, location: widget.location, radius: widget.radius, countries: widget.countries, types: typesString);
   }
 
-  ///[_list]
-  ///Show all places result
-  Widget _list({required List<PredictionModel> places}) {
-    return ListView.builder(
-      itemCount: places.length,
-      itemBuilder: (context, index) {
-        return _item(place: places[index]);
-      },
-    );
-  }
-
-  ///[_item]
-  ///Item of place result list
-  Widget _item({required PredictionModel place}) {
-    log(place.latitude.toString());
-
-    return AwesomePlaceSearchItem(
-      title: place.description ?? "",
-      searchedValue: _textSearch.text,
-      dividerColor: dividerItemColor,
-      dividerWidth: dividerItemWidth,
-      placeIcon: placeIconWidget,
-      placesTypes: place.types,
-      subtitle: place.structuredFormatting!.secondaryText ?? "",
-      indicatorColor: indicatorColor,
-      subtitleStyle: subtitleStyle,
-      titleStyle: titleStyle,
-      onTap: () {
-        _tapItem(place: place);
-      },
-    );
-  }
-
-  void _searchData({required StateSetter state}) async {
-    state(() {
+  void _searchData(String searchString) async {
+    setState(() {
       _searchState = SearchState.loading;
     });
 
-    final result = await _controller?.getPlaces(value: _textSearch.text);
+    final result = await _controller.getPlaces(searchString: searchString);
+    if(result.$1 != null){
+      setState(() {
+        _searchState = _controller.mapError(result.$1!);
+      });
+      return;
+    }
 
-    result?.fold((left) {
-      state(() {
-        _searchState = _controller!.mapError(left);
-      });
-    }, (right) {
-      state(() {
-        _places = right.predictions ?? [];
-        _searchState = SearchState.success;
-      });
+    setState(() {
+      _places = result.$2!.predictions ?? [];
+      _searchState = SearchState.success;
     });
   }
 
-  void _tapItem({required PredictionModel place}) async {
-    final result = await _controller?.getLatLng(value: place.placeId ?? "");
-    result?.fold((left) {
-      throw Exception("Was not possible to obtain the coordinates");
-    }, (right) {
-      place.latitude = right.latModel;
-      place.longitude = right.lngModel;
-      onTap(Future.value(place));
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
+  ///[_buildItem]
+  ///Item of place result list
+  Widget _buildItem({required PredictionModel place}) {
+    return widget.itemBuilder(context, place.description ?? "", place.structuredFormatting!.secondaryText ?? "",
+        () async {
+      final result = await _controller.getDetails(value: place.placeId ?? "");
+      if(result.$1 != null) {
+        setState(() {
+          _searchState = SearchState.serverError;
+        });
+        return;
       }
+
+      final right = result.$2!;
+      place.details = right;
+      widget.onSelected(place);
     });
+  }
+
+  ///[_buildPlacesList]
+  ///Show all places result
+  Widget _buildPlacesList() {
+    return ListView.builder(
+      padding: EdgeInsets.only(top: 8, bottom: 8),
+      itemCount: _places.length,
+      itemBuilder: (context, index) {
+        return _buildItem(place: _places[index]);
+      },
+    );
+  }
+
+  ///[_buildContent]
+  Widget _buildContent() {
+    if (_searchState == SearchState.none) {
+      return widget.noneBuilder(context);
+    }
+    if (_searchState == SearchState.empty) {
+      return widget.emptyBuilder(context);
+    }
+    if (_searchState == SearchState.loading) {
+      return widget.loadingBuilder(context);
+    }
+
+    if (_searchState == SearchState.invalidKey) {
+      return widget.invalidKeyBuilder(context);
+    }
+
+    if (_searchState == SearchState.serverError) {
+      return widget.errorBuilder(context);
+    }
+
+    return _buildPlacesList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        widget.searchBuilder(context, (value) {
+          _debounce(callback: () {
+            if (value.isEmpty) {
+              setState(() => _searchState = SearchState.none);
+              return;
+            }
+
+            _searchData(value);
+          });
+        }),
+        Expanded(child: _buildContent()),
+      ],
+    );
   }
 }
