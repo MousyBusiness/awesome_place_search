@@ -60,8 +60,15 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: AwesomePlacesSearch(
-        apiKey: "Your Google Map Key",
-        countries: "ao|pt",
+        controller: AwesomePlaceSearchController(
+          requester: (Uri uri) {
+            throw Exception();
+          },
+          location: '',
+          radius: null,
+          countries: '',
+          types: [],
+        ),
         onSelected: (v) {},
         itemBuilder: (context, title, address, onTap) {
           return ListTile(title: Text(title), subtitle: Text(address), onTap: onTap);

@@ -1,6 +1,7 @@
 import 'package:awesome_place_search/src/core/error/failures/i_failure.dart';
 import 'package:awesome_place_search/src/core/services/places_service.dart';
 import 'package:awesome_place_search/src/data/models/place_details.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../core/error/exceptions/key_empty_exception.dart';
 import '../models/awesome_place_model.dart';
@@ -35,12 +36,17 @@ class GetSearchRepository {
         radius: radius,
       );
       if (res.predictions!.isEmpty) {
+        debugPrint("Empty results");
         return (EmptyFailure(), null);
       }
       return (null, res);
     } on InvalidKeyException {
+      debugPrint("Invalid Key");
       return (InvalidKeyFailure(), null);
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint("Failed to get places");
+      debugPrint(e.toString());
+      debugPrint(s.toString());
       return (ServerFailure(message: e.toString()), null);
     }
   }

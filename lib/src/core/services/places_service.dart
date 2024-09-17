@@ -1,34 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:awesome_place_search/src/core/client/http_client.dart';
-import 'package:awesome_place_search/src/core/error/exceptions/key_empty_exception.dart';
+import 'package:awesome_place_search/src/core/places/uri_builder.dart';
 import 'package:awesome_place_search/src/data/models/place_details.dart';
+import 'package:flutter/widgets.dart';
 
 import '../error/exceptions/network_exception.dart';
 import '../error/exceptions/server_exception.dart';
 import '../../data/models/awesome_place_model.dart';
+import 'package:http/http.dart' as http;
+
+typedef PlacesRequester = Future<http.Response> Function(Uri uri);
 
 class PlacesServices {
-  PlacesServices({
-    required this.apiKey,
-    required this.http,
-  });
+  PlacesServices(this.get);
 
-  final String apiKey;
-  final HttpClient http;
+  final PlacesRequester get;
   final url = "maps.googleapis.com";
 
   Future<PlaceDetails> getDetails({required String param}) async {
     try {
-      var res = await http.get(
+      final res = await get(PlacesUriBuilder.build(
         authority: url,
         path: "maps/api/place/details/json",
         param: {
           "place_id": param,
-          "key": apiKey,
         },
-      );
+      ));
       if (res.statusCode == 200) {
         final value = jsonDecode(res.body) as Map<String, dynamic>;
 
@@ -36,7 +34,7 @@ class PlacesServices {
         return result;
       }
       throw ServerException();
-    } catch (e,s) {
+    } catch (e, s) {
       print(e);
       print(s.toString());
       throw ServerException();
@@ -50,47 +48,46 @@ class PlacesServices {
     String? location,
     int? radius,
   }) async {
-    if (apiKey.isEmpty || apiKey.contains(' ')) {
-      throw InvalidKeyException();
-    } else {
-      try {
-        final params = <String, dynamic>{
-          "key": apiKey,
-          "input": searchString,
-        };
+    try {
+      final params = <String, dynamic>{
+        "input": searchString,
+      };
 
-        if (countries != null) {
-          params["components"] = countries.split("|").map((c) => "country:$c").join("|");
-        }
-
-        if (types != null) {
-          params["types"] = types;
-        }
-
-        if (location != null) {
-          if (radius == null) {
-            throw Exception("Required radius with location");
-          }
-          params["location"] = location;
-          params["radius"] = radius;
-        }
-
-        var res = await http.get(
-          authority: url,
-          path: "maps/api/place/autocomplete/json",
-          param: params,
-        );
-        if (res.statusCode == 200) {
-          final result = AwesomePlacesSearchModel.fromJson(jsonDecode(res.body));
-
-          return result;
-        }
-        throw ServerException();
-      } on TimeoutException {
-        throw NetworkException();
-      } catch (e) {
-        throw ServerException();
+      if (countries != null) {
+        params["components"] = countries.split("|").map((c) => "country:$c").join("|");
       }
+
+      if (types != null) {
+        params["types"] = types;
+      }
+
+      if (location != null) {
+        if (radius == null) {
+          throw Exception("Required radius with location");
+        }
+        params["location"] = location;
+        params["radius"] = radius;
+      }
+
+      var res = await get(PlacesUriBuilder.build(
+        authority: url,
+        path: "maps/api/place/autocomplete/json",
+        param: params,
+      ));
+      if (res.statusCode == 200) {
+        final result = AwesomePlacesSearchModel.fromJson(jsonDecode(res.body));
+
+        return result;
+      }
+      throw ServerException();
+    } on TimeoutException {
+      debugPrint("Timed out while trying to get places");
+      throw NetworkException();
+    } catch (e, s) {
+      debugPrint("Error getting places");
+      debugPrint(e.toString());
+      debugPrint(s.toString());
+      throw ServerException();
     }
   }
 }

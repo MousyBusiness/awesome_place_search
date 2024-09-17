@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 class AwesomePlacesSearch extends StatefulWidget {
   const AwesomePlacesSearch({
     super.key,
-    required this.apiKey,
+    required this.controller,
     required this.onSelected,
     required this.itemBuilder,
     required this.searchBuilder,
@@ -24,34 +24,19 @@ class AwesomePlacesSearch extends StatefulWidget {
     this.debounce = const Duration(milliseconds: 500),
     this.hint,
     this.errorText,
-    this.countries,
-    this.types,
-    this.location,
-    this.radius,
   });
 
-  final String apiKey;
   final String? hint;
   final String? errorText;
   final Duration debounce;
 
-  /// Location and radius should be used together
-  /// latitude,longitude
-  final String? location;
-  /// meters
-  final int? radius;
-
-  /// Pipe separated string of iban alpha-2 codes e.g. us|ad (United States and Andorra)
-  /// https://www.iban.com/country-codes
-  final String? countries;
-  /// Pipe separated string e.g. airport|bar see PlacesTypes for valid values
-  final List<PlacesTypes>? types;
   final WidgetBuilder loadingBuilder;
   final WidgetBuilder noneBuilder;
   final WidgetBuilder emptyBuilder;
   final WidgetBuilder invalidKeyBuilder;
   final WidgetBuilder errorBuilder;
   final ValueSetter<PredictionModel> onSelected;
+  final AwesomePlaceSearchController controller;
   final Widget Function(
     BuildContext context,
     String title,
@@ -69,21 +54,15 @@ class AwesomePlacesSearch extends StatefulWidget {
 }
 
 class _AwesomePlacesSearchState extends State<AwesomePlacesSearch> {
-  late AwesomePlaceSearchController _controller;
   late final Debounce _debounce;
   SearchState _searchState = SearchState.none;
   List<PredictionModel> _places = [];
+  get _controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
-    String? typesString;
-    if(widget.types != null && widget.types!.isNotEmpty){
-      typesString = widget.types!.map((e)=> e.string).join("|");
-    }
-
     _debounce = Debounce(duration: widget.debounce);
-    _controller = AwesomePlaceSearchController(apiKey: widget.apiKey, location: widget.location, radius: widget.radius, countries: widget.countries, types: typesString);
   }
 
   void _searchData(String searchString) async {
